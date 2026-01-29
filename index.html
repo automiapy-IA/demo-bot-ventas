@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Agente de Ventas v6</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            padding: 15px;
+        }
+        .container { display: flex; gap: 25px; max-width: 1200px; width: 100%; }
+        .phone {
+            width: 380px; height: 720px;
+            background: #0b141a; border-radius: 40px;
+            padding: 10px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); flex-shrink: 0;
+        }
+        .phone-screen {
+            background: #0b141a; border-radius: 32px;
+            height: 100%; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        .chat-header {
+            background: #202c33; padding: 15px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .chat-avatar {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 22px;
+        }
+        .chat-info h3 { color: #e9edef; font-size: 16px; }
+        .chat-info p { color: #00d26a; font-size: 12px; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; background: #111b21; }
+        .message {
+            max-width: 85%; padding: 10px 14px; border-radius: 16px;
+            margin-bottom: 8px; font-size: 14px; line-height: 1.45;
+            animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .message.sent { background: #005c4b; color: #e9edef; margin-left: auto; border-bottom-right-radius: 4px; }
+        .message.received { background: #202c33; color: #e9edef; border-bottom-left-radius: 4px; }
+        .message .time { font-size: 10px; color: rgba(255,255,255,0.35); text-align: right; margin-top: 4px; }
+        .chat-input { background: #202c33; padding: 12px 15px; display: flex; gap: 10px; align-items: center; }
+        .chat-input input {
+            flex: 1; background: #2a3942; border: none;
+            padding: 12px 16px; border-radius: 22px;
+            color: #e9edef; font-size: 14px;
+        }
+        .chat-input input:focus { outline: none; background: #3a4952; }
+        .chat-input input::placeholder { color: #8696a0; }
+        .chat-input button {
+            background: linear-gradient(135deg, #00a884, #00d26a);
+            border: none; width: 46px; height: 46px; border-radius: 50%;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .chat-input button:hover { transform: scale(1.05); }
+        .chat-input button svg { fill: white; width: 20px; height: 20px; }
+        
+        .panel { background: white; border-radius: 20px; padding: 20px; flex: 1; max-height: 720px; overflow-y: auto; }
+        .panel h2 { color: #1a1a2e; margin-bottom: 4px; font-size: 18px; }
+        .panel .subtitle { color: #888; font-size: 12px; margin-bottom: 15px; }
+        .section { margin-bottom: 12px; }
+        .section-title { font-size: 10px; font-weight: 600; color: #999; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+        .quick-buttons { display: flex; flex-wrap: wrap; gap: 5px; }
+        .quick-btn {
+            background: #e94560; color: white; border: none;
+            padding: 7px 11px; border-radius: 14px; cursor: pointer;
+            font-size: 11px; transition: all 0.15s;
+        }
+        .quick-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .quick-btn.blue { background: #667eea; }
+        .quick-btn.gray { background: #555; }
+        .quick-btn.green { background: #00b894; }
+        
+        .state-box { background: #f5f5f5; border-radius: 10px; padding: 10px; margin-top: 10px; font-size: 10px; }
+        .state-box h4 { color: #666; margin-bottom: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .state-row { display: flex; justify-content: space-between; padding: 2px 0; color: #666; }
+        .state-row span:last-child { color: #333; font-weight: 500; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        
+        .log-box { background: #1a1a2e; border-radius: 10px; padding: 10px; margin-top: 10px; font-size: 9px; font-family: monospace; color: #0f0; max-height: 120px; overflow-y: auto; }
+        .log-box div { padding: 1px 0; }
+        .log-box .info { color: #0ff; }
+        .log-box .warn { color: #ff0; }
+        
+        .typing { display: flex; gap: 4px; padding: 10px 14px; background: #202c33; border-radius: 16px; width: fit-content; margin-bottom: 8px; }
+        .typing span { width: 7px; height: 7px; background: #667; border-radius: 50%; animation: bounce 1s infinite; }
+        .typing span:nth-child(2) { animation-delay: 0.15s; }
+        .typing span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        
+        .qr-box { background: white; padding: 10px; border-radius: 8px; display: inline-block; margin-top: 6px; }
+        .qr-box img { width: 120px; height: 120px; }
+        .qr-box p { font-size: 10px; color: #888; margin-top: 5px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="phone">
+            <div class="phone-screen">
+                <div class="chat-header">
+                    <div class="chat-avatar">👗</div>
+                    <div class="chat-info">
+                        <h3>Moda Store</h3>
+                        <p>en línea</p>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chat"></div>
+                <div class="chat-input">
+                    <input type="text" id="input" placeholder="Escribí tu mensaje..." onkeydown="if(event.key==='Enter')send()">
+                    <button onclick="send()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>🛍️ Agente v6 - Robusto</h2>
+            <p class="subtitle">Entiende múltiples productos y no repregunta</p>
+            
+            <div class="section">
+                <div class="section-title">🔥 Pedidos múltiples (el problema a resolver)</div>
+                <div class="quick-buttons">
+                    <button class="quick-btn" onclick="q('Hola, busco una remera y un jean')">Remera + Jean</button>
+                    <button class="quick-btn" onclick="q('Tienen remeras y buzos?')">Remeras + Buzos</button>
+                    <button class="quick-btn" onclick="q('Quiero jean, remera y zapatillas')">3 productos</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">✅ No repregunta si ya dijo</div>
+                <div class="quick-buttons">
+                    <button class="quick-btn blue" onclick="q('Tienen remeras negras?')">Con color</button>
+                    <button class="quick-btn blue" onclick="q('Tienen remeras talle M?')">Con talle</button>
+                    <button class="quick-btn blue" onclick="q('Quiero una remera negra M')">Color + Talle</button>
+                    <button class="quick-btn blue" onclick="q('Remera negra M y jean azul 32')">2 completos</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">Flujo de selección</div>
+                <div class="quick-buttons">
+                    <button class="quick-btn gray" onclick="q('La negra')">Color</button>
+                    <button class="quick-btn gray" onclick="q('Talle M')">Talle</button>
+                    <button class="quick-btn gray" onclick="q('La negra M')">Ambos</button>
+                    <button class="quick-btn gray" onclick="q('No, mostrame otra')">Ver otra</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">Confirmar y agregar</div>
+                <div class="quick-buttons">
+                    <button class="quick-btn green" onclick="q('Dale')">Confirmar</button>
+                    <button class="quick-btn green" onclick="q('También quiero un buzo')">Agregar más</button>
+                    <button class="quick-btn green" onclick="q('Listo, eso es todo')">Cerrar</button>
+                    <button class="quick-btn green" onclick="q('María 099123456')">Datos</button>
+                </div>
+            </div>
+            
+            <div class="section">
+                <div class="section-title">Casos edge</div>
+                <div class="quick-buttons">
+                    <button class="quick-btn gray" onclick="q('Qué productos tenés?')">Ver catálogo</button>
+                    <button class="quick-btn gray" onclick="q('Tienen Nike?')">Marca no hay</button>
+                    <button class="quick-btn gray" onclick="q('Remera con calaveras')">Diseño no hay</button>
+                    <button class="quick-btn gray" onclick="q('Muy caro')">Precio</button>
+                    <button class="quick-btn gray" onclick="q('Hacen envíos?')">Envío</button>
+                </div>
+            </div>
+            
+            <button class="quick-btn" style="background:#333;margin-top:8px;" onclick="reset()">🔄 Reiniciar</button>
+            
+            <div class="state-box">
+                <h4>Estado</h4>
+                <div class="state-row"><span>Carrito:</span><span id="s-cart">-</span></div>
+                <div class="state-row"><span>Eligiendo:</span><span id="s-curr">-</span></div>
+                <div class="state-row"><span>Pendientes:</span><span id="s-queue">-</span></div>
+                <div class="state-row"><span>Esperando:</span><span id="s-wait">-</span></div>
+            </div>
+            
+            <div class="log-box" id="log"></div>
+        </div>
+    </div>
+
+<script>
+// ==================== DEBUG ====================
+function log(msg, type = '') {
+    const logEl = document.getElementById('log');
+    const div = document.createElement('div');
+    div.className = type;
+    div.textContent = '> ' + msg;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ==================== CATÁLOGO ====================
+const CATALOGO = {
+    remeras: [
+        { id: 'r1', nombre: 'remera lisa algodón', colores: ['negra','blanca','gris'], talles: ['S','M','L','XL'], precio: 85000 },
+        { id: 'r2', nombre: 'remera estampada urban', colores: ['negra','blanca'], talles: ['S','M','L'], precio: 95000 },
+        { id: 'r3', nombre: 'remera oversize', colores: ['negra','beige','verde'], talles: ['M','L','XL'], precio: 110000 },
+    ],
+    jeans: [
+        { id: 'j1', nombre: 'jean slim fit', colores: ['azul','negro'], talles: ['30','32','34','36'], precio: 180000 },
+        { id: 'j2', nombre: 'jean mom', colores: ['celeste','azul'], talles: ['28','30','32'], precio: 195000 },
+    ],
+    buzos: [
+        { id: 'b1', nombre: 'hoodie algodón', colores: ['gris','negro','bordo'], talles: ['S','M','L','XL'], precio: 165000 },
+        { id: 'b2', nombre: 'buzo cuello redondo', colores: ['negro','azul'], talles: ['M','L','XL'], precio: 145000 },
+    ],
+    camperas: [
+        { id: 'c1', nombre: 'campera de jean', colores: ['azul','negra'], talles: ['S','M','L'], precio: 250000 },
+    ],
+    zapatillas: [
+        { id: 'z1', nombre: 'zapatillas urbanas', colores: ['blancas','negras'], talles: ['38','39','40','41','42','43'], precio: 280000 },
+    ],
+    accesorios: [
+        { id: 'a1', nombre: 'gorra', colores: ['negra','blanca'], talles: ['único'], precio: 65000 },
+        { id: 'a2', nombre: 'riñonera', colores: ['negra','beige'], talles: ['único'], precio: 85000 },
+    ]
+};
+
+const MARCAS_NO = ['nike','adidas','puma','reebok','lacoste','tommy','gucci','zara','levis'];
+const DISENOS_NO = ['calavera','dragon','anime','banda','rock','marvel','dc','dibujo','logo'];
+
+// ==================== ESTADO GLOBAL ====================
+let STATE = {
+    nombre: null,
+    saludado: false,
+    carrito: [],        // [{producto, color, talle}]
+    actual: null,       // {producto, color, talle} - lo que está eligiendo ahora
+    cola: [],           // categorías pendientes ['jeans', 'buzos']
+    esperando: null     // null | 'color' | 'talle' | 'confirmar' | 'datos'
+};
+
+function resetState() {
+    STATE = {
+        nombre: null,
+        saludado: false,
+        carrito: [],
+        actual: null,
+        cola: [],
+        esperando: null
+    };
+}
+
+// ==================== UTILIDADES ====================
+const fmt = n => n.toLocaleString('es-PY') + ' Gs';
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+function normalizarColor(c) {
+    if (!c) return null;
+    const mapa = {
+        'negro':'negra', 'negras':'negra', 'negros':'negra',
+        'blanco':'blanca', 'blancos':'blanca', 'blancas':'blanca',
+        'grises':'gris', 'azules':'azul', 'celestes':'celeste',
+        'verdes':'verde', 'rojos':'roja', 'rojo':'roja',
+        'beiges':'beige', 'bordos':'bordo', 'bordó':'bordo'
+    };
+    c = c.toLowerCase();
+    return mapa[c] || c;
+}
+
+function buscarColorEnProducto(producto, colorBuscado) {
+    if (!producto || !colorBuscado) return null;
+    const norm = normalizarColor(colorBuscado);
+    for (const c of producto.colores) {
+        if (normalizarColor(c) === norm || c.includes(norm) || norm.includes(c.replace(/[ao]s?$/,''))) {
+            return c;
+        }
+    }
+    return null;
+}
+
+function productoRandom(categoria) {
+    const lista = CATALOGO[categoria];
+    return lista[Math.floor(Math.random() * lista.length)];
+}
+
+function updateUI() {
+    document.getElementById('s-cart').textContent = STATE.carrito.length > 0 
+        ? STATE.carrito.map(i => `${i.color} ${i.talle}`).join(' | ') 
+        : '-';
+    document.getElementById('s-curr').textContent = STATE.actual 
+        ? `${STATE.actual.producto.nombre} ${STATE.actual.color||'?'} ${STATE.actual.talle||'?'}`
+        : '-';
+    document.getElementById('s-queue').textContent = STATE.cola.length > 0 ? STATE.cola.join(', ') : '-';
+    document.getElementById('s-wait').textContent = STATE.esperando || '-';
+}
+
+// ==================== PARSER ====================
+function parsear(texto) {
+    const t = texto.toLowerCase().trim();
+    const r = {
+        categorias: [],
+        color: null,
+        talle: null,
+        esSaludo: false,
+        esConfirmar: false,
+        esCancelar: false,
+        esCerrar: false,
+        agregarMas: false,
+        marcaNoHay: null,
+        disenoNoHay: null,
+        consultaEnvio: false,
+        consultaLocal: false,
+        objetaPrecio: false,
+        datos: null
+    };
+    
+    // Categorías - DETECTAR TODAS
+    if (/remera|camiseta/i.test(t)) r.categorias.push('remeras');
+    if (/jean|jeans|pantalón|pantalon/i.test(t)) r.categorias.push('jeans');
+    if (/buzo|hoodie|sudadera/i.test(t)) r.categorias.push('buzos');
+    if (/campera|chaqueta/i.test(t)) r.categorias.push('camperas');
+    if (/zapatilla|tenis/i.test(t)) r.categorias.push('zapatillas');
+    if (/gorra|riñonera|accesorio/i.test(t)) r.categorias.push('accesorios');
+    
+    // Color
+    const matchColor = t.match(/(negr[oa]s?|blanc[oa]s?|grises?|gris|azul|celeste|verde|roj[oa]|beige|bord[oó])/i);
+    if (matchColor) r.color = normalizarColor(matchColor[1]);
+    
+    // Talle
+    const matchTalle = t.match(/\b(xs|s|m|l|xl|xxl|\d{2})\b/i);
+    if (matchTalle) r.talle = matchTalle[1].toUpperCase();
+    
+    // Intenciones
+    r.esSaludo = /^(hola|buenas|hey|hi|que tal|qué tal)[!,.\s]*$/i.test(t) || /^hola[,!\s]/i.test(t);
+    r.esConfirmar = /^(si|sí|dale|va|listo|ok|bueno|la quiero|lo quiero|agrega|ese|esa|eso|está bien|esta bien|perfecto|claro|por supuesto)[!.\s]*$/i.test(t) ||
+                    /^(si|sí|dale|ok),?\s*(ese|esa|eso)?\s*(talle)?/i.test(t);
+    r.esCancelar = /no quiero|mejor no|otra|no me gusta|no gracias/i.test(t);
+    r.esCerrar = /eso es todo|nada más|nada mas|solo eso|cerrar|finalizar/i.test(t);
+    r.agregarMas = /también|tambien|además|ademas|aparte|y un|y una/i.test(t);
+    r.consultaCatalogo = /qu[eé] (productos?|cosas?|cosas|art[ií]culos?)?\s*(ten[eé]s|tienen|hay|vend[eé]s|venden|manejan)|ver (todo|productos|catalogo|catálogo)|mostrame (todo|el cat[aá]logo)|qu[eé] hay/i.test(t);
+    
+    // Consultas
+    r.consultaEnvio = /envío|envio|envían|envian|mandan|delivery/i.test(t);
+    r.consultaLocal = /local|tienda|dirección|direccion|donde (están|estan|queda)/i.test(t);
+    r.objetaPrecio = /caro|cara|mucho|barato|descuento|promo/i.test(t);
+    
+    // Marca no disponible
+    for (const m of MARCAS_NO) { if (t.includes(m)) { r.marcaNoHay = m; break; } }
+    
+    // Diseño no disponible
+    for (const d of DISENOS_NO) { if (t.includes(d)) { r.disenoNoHay = d; break; } }
+    
+    // Datos
+    const matchDatos = t.match(/([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)+)\s+(\d[\d.]{5,})/i);
+    if (matchDatos) r.datos = { nombre: matchDatos[1], ci: matchDatos[2].replace(/\./g,'') };
+    
+    return r;
+}
+
+// ==================== RESPONDER ====================
+function responder(texto) {
+    const p = parsear(texto);
+    log(`Parseado: cats=[${p.categorias}] color=${p.color} talle=${p.talle}`, 'info');
+    
+    // ----- DATOS -----
+    if (p.datos || STATE.esperando === 'datos') {
+        // Más flexible: cualquier nombre + número sirve para el demo
+        const matchFlexible = texto.match(/([a-záéíóúñ]{2,}(?:\s+[a-záéíóúñ]{2,})*)\s*[,\s]\s*(\d+)/i) ||
+                              texto.match(/([a-záéíóúñ]{3,})\s+(\d+)/i);
+        
+        if (p.datos || matchFlexible) {
+            const datosUsar = p.datos || { nombre: matchFlexible[1], ci: matchFlexible[2] };
+            STATE.nombre = datosUsar.nombre.split(' ').map(w=>w[0].toUpperCase()+w.slice(1)).join(' ');
+            STATE.esperando = null;
+            const envio = 25000 + Math.floor(Math.random()*15000);
+            const sub = STATE.carrito.reduce((s,i)=>s+i.producto.precio, 0);
+            let r = `Perfecto ${STATE.nombre}!\n\n`;
+            if (STATE.carrito.length > 1) {
+                r += 'Tu pedido:\n';
+                STATE.carrito.forEach(i => r += `• ${i.producto.nombre} ${i.color} ${i.talle} - ${fmt(i.producto.precio)}\n`);
+                r += `\nSubtotal: ${fmt(sub)}\n`;
+            } else {
+                const i = STATE.carrito[0];
+                r += `${i.producto.nombre} ${i.color} ${i.talle} - ${fmt(i.producto.precio)}\n`;
+            }
+            r += `Envío: ${fmt(envio)}\nTotal: ${fmt(sub+envio)}\n\nTe mando el link de pago:`;
+            setTimeout(()=>addQR(), 1000);
+            setTimeout(()=>addMsg(`${STATE.nombre}, cuando hagas el pago te aviso por acá y coordinamos el envío 🚚\n\nGracias por tu compra! 🙌`, false), 2500);
+            updateUI();
+            return r;
+        }
+        return 'Pasame tu nombre y un número de contacto, ej: María 099123456';
+    }
+    
+    // ----- CERRAR COMPRA -----
+    if (p.esCerrar) {
+        // Si tiene algo actual completo, agregarlo
+        if (STATE.actual?.color && STATE.actual?.talle) {
+            STATE.carrito.push({...STATE.actual});
+            STATE.actual = null;
+        }
+        if (STATE.carrito.length === 0) return 'No tenés nada en el carrito. ¿Qué te muestro?';
+        STATE.esperando = 'datos';
+        STATE.cola = [];
+        const total = STATE.carrito.reduce((s,i)=>s+i.producto.precio, 0);
+        updateUI();
+        return `Ok! ${STATE.carrito.length} producto(s), ${fmt(total)} + envío.\nPasame nombre y cédula`;
+    }
+    
+    // ----- CONFIRMAR -----
+    if (p.esConfirmar && STATE.actual) {
+        const prod = STATE.actual.producto;
+        
+        // Si falta talle pero es único, asignarlo
+        if (!STATE.actual.talle && prod.talles.length === 1 && prod.talles[0].toLowerCase() === 'único') {
+            STATE.actual.talle = 'único';
+        }
+        
+        if (STATE.actual.color && STATE.actual.talle) {
+            STATE.carrito.push({...STATE.actual});
+            log(`Agregado al carrito: ${STATE.actual.producto.nombre}`, 'info');
+            STATE.actual = null;
+            
+            // ¿Hay más en cola?
+            if (STATE.cola.length > 0) {
+                const sigCat = STATE.cola.shift();
+                const nuevoProd = productoRandom(sigCat);
+                STATE.actual = { producto: nuevoProd, color: null, talle: null };
+                // Asignar talle único si aplica
+                if (nuevoProd.talles.length === 1 && nuevoProd.talles[0].toLowerCase() === 'único') {
+                    STATE.actual.talle = 'único';
+                }
+                STATE.esperando = 'color';
+                updateUI();
+                return `Agregado! 🛒\n\nAhora ${sigCat}: ${nuevoProd.nombre}, ${fmt(nuevoProd.precio)}.\nColores: ${nuevoProd.colores.join(', ')}\n\n¿Cuál?`;
+            }
+            
+            STATE.esperando = null;
+            updateUI();
+            return `Agregado! 🛒 (${STATE.carrito.length} en carrito)\n\n¿Algo más o cerramos?`;
+        }
+        if (!STATE.actual.color) {
+            STATE.esperando = 'color';
+            return `Primero decime el color: ${prod.colores.join(', ')}`;
+        }
+        if (!STATE.actual.talle) {
+            STATE.esperando = 'talle';
+            return `¿Qué talle? Hay ${prod.talles.join(', ')}`;
+        }
+    }
+    
+    // ----- CANCELAR / VER OTRA -----
+    if (p.esCancelar && STATE.actual) {
+        const cat = Object.keys(CATALOGO).find(k => CATALOGO[k].some(x => x.id === STATE.actual.producto.id));
+        const otras = CATALOGO[cat].filter(x => x.id !== STATE.actual.producto.id);
+        if (otras.length > 0) {
+            const nueva = otras[Math.floor(Math.random()*otras.length)];
+            STATE.actual = { producto: nueva, color: null, talle: null };
+            STATE.esperando = 'color';
+            updateUI();
+            return `Ok, otra: ${nueva.nombre}, ${fmt(nueva.precio)}.\nColores: ${nueva.colores.join(', ')}\n\n¿Te gusta?`;
+        }
+        STATE.actual = null;
+        STATE.esperando = null;
+        updateUI();
+        return 'No tengo más de esa categoría. ¿Qué más te muestro?';
+    }
+    
+    // ----- SELECCIÓN COLOR/TALLE (cuando ya tiene producto actual) -----
+    if ((p.color || p.talle) && STATE.actual) {
+        const prod = STATE.actual.producto;
+        
+        if (p.color) {
+            const colorValido = buscarColorEnProducto(prod, p.color);
+            if (colorValido) {
+                STATE.actual.color = colorValido;
+                log(`Color seleccionado: ${colorValido}`, 'info');
+                
+                // Si talle es único, asignarlo automáticamente
+                if (prod.talles.length === 1 && prod.talles[0].toLowerCase() === 'único') {
+                    STATE.actual.talle = 'único';
+                }
+            } else {
+                return `Ese color no hay. Tengo: ${prod.colores.join(', ')}\n\nDecime cuál preferís`;
+            }
+        }
+        
+        if (p.talle) {
+            if (prod.talles.includes(p.talle)) {
+                STATE.actual.talle = p.talle;
+                log(`Talle seleccionado: ${p.talle}`, 'info');
+            } else {
+                return `Ese talle no hay. Tengo: ${prod.talles.join(', ')}\n\nDecime cuál te va`;
+            }
+        }
+        
+        // Si hay categorías adicionales en el mensaje, guardarlas en cola
+        if (p.categorias.length > 0) {
+            STATE.cola = [...STATE.cola, ...p.categorias];
+            log(`Agregado a cola: ${p.categorias.join(', ')}`, 'info');
+        }
+        
+        // ¿Completo?
+        if (STATE.actual.color && STATE.actual.talle) {
+            STATE.esperando = 'confirmar';
+            const hayMas = STATE.cola.length > 0 ? '\nDespués seguimos con lo otro.' : '';
+            const talleTexto = STATE.actual.talle === 'único' ? '' : ` talle ${STATE.actual.talle}`;
+            updateUI();
+            return `${prod.nombre} ${STATE.actual.color}${talleTexto}, ${fmt(prod.precio)}.${hayMas}\n\n¿La agrego?`;
+        }
+        if (STATE.actual.color && !STATE.actual.talle) {
+            STATE.esperando = 'talle';
+            updateUI();
+            return `${STATE.actual.color.charAt(0).toUpperCase()+STATE.actual.color.slice(1)}, ¿talle? Hay ${prod.talles.join(', ')}`;
+        }
+        if (!STATE.actual.color && STATE.actual.talle) {
+            STATE.esperando = 'color';
+            updateUI();
+            return `Talle ${STATE.actual.talle}, ¿color? Hay ${prod.colores.join(', ')}`;
+        }
+    }
+    
+    // ----- RESPUESTA A CONFIRMACIÓN CON PEDIDO ADICIONAL (ej: "negra, y camperas?") -----
+    if (p.color && p.categorias.length > 0 && STATE.actual) {
+        const prod = STATE.actual.producto;
+        const colorValido = buscarColorEnProducto(prod, p.color);
+        
+        if (colorValido) {
+            STATE.actual.color = colorValido;
+            // Asignar talle único si aplica
+            if (prod.talles.length === 1 && prod.talles[0].toLowerCase() === 'único') {
+                STATE.actual.talle = 'único';
+            }
+            // Agregar categorías a la cola
+            STATE.cola = [...STATE.cola, ...p.categorias];
+            
+            if (STATE.actual.color && STATE.actual.talle) {
+                STATE.esperando = 'confirmar';
+                const talleTexto = STATE.actual.talle === 'único' ? '' : ` talle ${STATE.actual.talle}`;
+                updateUI();
+                return `${prod.nombre} ${STATE.actual.color}${talleTexto}, ${fmt(prod.precio)}.\nDespués vemos ${p.categorias.join(' y ')}.\n\n¿La agrego?`;
+            }
+        }
+    }
+    
+    // ----- AGREGAR MÁS -----
+    if (p.agregarMas && p.categorias.length > 0) {
+        // Si tiene actual completo, guardarlo
+        if (STATE.actual?.color && STATE.actual?.talle) {
+            STATE.carrito.push({...STATE.actual});
+        }
+        // Procesar nuevas categorías
+        const [primera, ...resto] = p.categorias;
+        STATE.cola = [...STATE.cola, ...resto];
+        const prod = productoRandom(primera);
+        STATE.actual = { producto: prod, color: null, talle: null };
+        
+        // Aplicar color/talle si vinieron
+        if (p.color) {
+            const cv = buscarColorEnProducto(prod, p.color);
+            if (cv) STATE.actual.color = cv;
+        }
+        if (p.talle && prod.talles.includes(p.talle)) {
+            STATE.actual.talle = p.talle;
+        }
+        
+        return generarRespuestaProducto(prod, resto);
+    }
+    
+    // ----- CONSULTAS -----
+    if (p.consultaEnvio) {
+        const c = 25000 + Math.floor(Math.random()*15000);
+        let r = `Sí! Asunción ~${fmt(c)}, interior según zona. O retirás gratis en local.`;
+        if (STATE.actual || STATE.carrito.length) r += '\n\n¿Seguimos?';
+        return r;
+    }
+    if (p.consultaLocal) {
+        let r = 'Av. España 1234, Asunción. Lunes a sábado 9-19hs.';
+        if (STATE.actual || STATE.carrito.length) r += '\n\n¿Seguimos?';
+        return r;
+    }
+    if (p.objetaPrecio) {
+        const barata = CATALOGO.remeras[0];
+        STATE.actual = { producto: barata, color: null, talle: null };
+        STATE.esperando = 'color';
+        updateUI();
+        return `Tengo cosas más accesibles. La ${barata.nombre} está a ${fmt(barata.precio)}.\nColores: ${barata.colores.join(', ')}\n\n¿Te interesa?`;
+    }
+    
+    // ----- MARCA NO DISPONIBLE -----
+    if (p.marcaNoHay) {
+        const cat = p.categorias[0] || 'remeras';
+        const prod = productoRandom(cat);
+        STATE.actual = { producto: prod, color: null, talle: null };
+        if (p.color) { const cv = buscarColorEnProducto(prod, p.color); if (cv) STATE.actual.color = cv; }
+        if (p.talle && prod.talles.includes(p.talle)) STATE.actual.talle = p.talle;
+        if (p.categorias.length > 1) STATE.cola = p.categorias.slice(1);
+        STATE.saludado = true;
+        
+        return generarRespuestaProducto(prod, STATE.cola, `${p.marcaNoHay.charAt(0).toUpperCase()+p.marcaNoHay.slice(1)} no manejo, pero tengo cosas buenas.\n\n`);
+    }
+    
+    // ----- DISEÑO NO DISPONIBLE -----
+    if (p.disenoNoHay) {
+        const prod = CATALOGO.remeras[1];
+        STATE.actual = { producto: prod, color: null, talle: null };
+        STATE.esperando = 'color';
+        STATE.saludado = true;
+        updateUI();
+        return `Con ${p.disenoNoHay} no tengo. Mis estampadas son más urbanas.\n\n${prod.nombre}, ${fmt(prod.precio)}. Colores: ${prod.colores.join(', ')}\n\n¿Te sirve?`;
+    }
+    
+    // ----- BÚSQUEDA DE PRODUCTOS (el caso principal) -----
+    if (p.categorias.length > 0) {
+        log(`Detectadas ${p.categorias.length} categorías: ${p.categorias.join(', ')}`, 'info');
+        STATE.saludado = true;
+        
+        const [primera, ...resto] = p.categorias;
+        STATE.cola = resto;
+        
+        const prod = productoRandom(primera);
+        STATE.actual = { producto: prod, color: null, talle: null };
+        
+        // Aplicar color/talle si vinieron en el mensaje
+        if (p.color) {
+            const colorValido = buscarColorEnProducto(prod, p.color);
+            if (colorValido) {
+                STATE.actual.color = colorValido;
+                log(`Color ya provisto: ${colorValido}`, 'info');
+            }
+        }
+        if (p.talle && prod.talles.includes(p.talle)) {
+            STATE.actual.talle = p.talle;
+            log(`Talle ya provisto: ${p.talle}`, 'info');
+        }
+        
+        return generarRespuestaProducto(prod, resto);
+    }
+    
+    // ----- PREGUNTA POR CATÁLOGO -----
+    if (p.consultaCatalogo) {
+        STATE.saludado = true;
+        return `Tengo:\n• Remeras (desde ${fmt(85000)})\n• Jeans (desde ${fmt(180000)})\n• Buzos/Hoodies (desde ${fmt(145000)})\n• Camperas (desde ${fmt(250000)})\n• Zapatillas (desde ${fmt(280000)})\n• Accesorios (gorras, riñoneras)\n\n¿Qué te interesa ver?`;
+    }
+    
+    // ----- SALUDO SOLO -----
+    if (p.esSaludo) {
+        if (STATE.saludado) return '¿Qué necesitás?';
+        STATE.saludado = true;
+        updateUI();
+        return pick(['Hola! ¿Qué buscás?', 'Buenas! ¿En qué te ayudo?', 'Hola! Decime 😊']);
+    }
+    
+    // ----- NO ENTENDIÓ -----
+    if (STATE.esperando === 'color' && STATE.actual) {
+        const coloresEj = STATE.actual.producto.colores.slice(0,2).join(' o ');
+        return `No entendí el color. Decime por ejemplo "${coloresEj}"`;
+    }
+    if (STATE.esperando === 'talle' && STATE.actual) {
+        const tallesEj = STATE.actual.producto.talles.slice(0,2).join(' o ');
+        return `No entendí el talle. Decime por ejemplo "${tallesEj}"`;
+    }
+    if (STATE.esperando === 'confirmar') {
+        return `¿Te lo agrego? Decime "sí" o "dale"`;
+    }
+    
+    return 'No entendí 😅 ¿Qué buscás? Tengo remeras, jeans, buzos, camperas...';
+}
+
+// Genera respuesta según estado del producto actual
+function generarRespuestaProducto(prod, pendientes, prefijo = '') {
+    const hayPendientes = pendientes && pendientes.length > 0;
+    const pendientesTexto = hayPendientes ? `\nDespués vemos ${pendientes.join(' y ')}.` : '';
+    
+    // Si el talle es único, asignarlo automáticamente
+    if (prod.talles.length === 1 && prod.talles[0].toLowerCase() === 'único') {
+        STATE.actual.talle = 'único';
+    }
+    
+    // Si ya tiene color Y talle -> preguntar confirmación
+    if (STATE.actual.color && STATE.actual.talle) {
+        STATE.esperando = 'confirmar';
+        updateUI();
+        // Si talle es único, no mostrarlo
+        const talleTexto = STATE.actual.talle === 'único' ? '' : ` talle ${STATE.actual.talle}`;
+        return `${prefijo}${prod.nombre} ${STATE.actual.color}${talleTexto}, ${fmt(prod.precio)}.${pendientesTexto}\n\n¿La agrego?`;
+    }
+    
+    // Si tiene color pero no talle (y no es único)
+    if (STATE.actual.color && !STATE.actual.talle) {
+        STATE.esperando = 'talle';
+        updateUI();
+        return `${prefijo}${prod.nombre} ${STATE.actual.color}, ${fmt(prod.precio)}.${pendientesTexto}\n¿Talle? Hay ${prod.talles.join(', ')}`;
+    }
+    
+    // Si tiene talle pero no color
+    if (!STATE.actual.color && STATE.actual.talle) {
+        STATE.esperando = 'color';
+        updateUI();
+        const talleTexto = STATE.actual.talle === 'único' ? '' : ` talle ${STATE.actual.talle}`;
+        return `${prefijo}${prod.nombre}${talleTexto}, ${fmt(prod.precio)}.${pendientesTexto}\n¿Color? Hay ${prod.colores.join(', ')}`;
+    }
+    
+    // No tiene nada -> preguntar color (si talle es único ya está asignado)
+    STATE.esperando = 'color';
+    updateUI();
+    return `${prefijo}Tengo ${prod.nombre}, ${fmt(prod.precio)}.\nColores: ${prod.colores.join(', ')}${pendientesTexto}\n\n¿Cuál te gusta?`;
+}
+
+// ==================== UI ====================
+function addMsg(txt, sent) {
+    const chat = document.getElementById('chat');
+    const div = document.createElement('div');
+    div.className = 'message ' + (sent ? 'sent' : 'received');
+    const time = new Date().toLocaleTimeString('es-PY', {hour:'2-digit', minute:'2-digit'});
+    div.innerHTML = txt.replace(/\n/g,'<br>') + `<div class="time">${time}</div>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function addQR() {
+    const chat = document.getElementById('chat');
+    const div = document.createElement('div');
+    div.className = 'message received';
+    div.innerHTML = `<div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://pagopar.com/${Date.now()}" alt="QR"><p>Escaneá para pagar</p></div>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function showTyping() {
+    const chat = document.getElementById('chat');
+    const div = document.createElement('div');
+    div.id = 'typing'; div.className = 'typing';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function hideTyping() { const t = document.getElementById('typing'); if (t) t.remove(); }
+
+function send() {
+    const input = document.getElementById('input');
+    const txt = input.value.trim();
+    if (!txt) return;
+    
+    addMsg(txt, true);
+    input.value = '';
+    showTyping();
+    
+    setTimeout(() => {
+        hideTyping();
+        addMsg(responder(txt), false);
+    }, 400 + Math.random() * 400);
+}
+
+function q(txt) { document.getElementById('input').value = txt; send(); }
+
+function simPago() {
+    if (!STATE.nombre) { addMsg('Completá el pedido primero', false); return; }
+    showTyping();
+    setTimeout(() => { hideTyping(); addMsg(`${STATE.nombre}, pago confirmado! ✅\n\nPreparando tu pedido. Te aviso cuando despache.\n\nGracias! 🙌`, false); }, 800);
+}
+
+function reset() {
+    document.getElementById('chat').innerHTML = '';
+    document.getElementById('log').innerHTML = '';
+    resetState();
+    updateUI();
+    log('Estado reiniciado', 'info');
+}
+
+updateUI();
+</script>
+</body>
+</html>
